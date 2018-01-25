@@ -98,7 +98,7 @@ void trymove(int from, int to) {
 		return;
 	}
 	if (world[to].size() == 0) {
-		if (from < 7 && world[from].size() && (world[from][hide[from]] >> 2) == 13) {
+		if (from < 7 && world[from].size() && (world[from][hide[from]] >> 2) == 12) {
 			world[to].insert(world[to].end(), world[from].begin() + hide[from], world[from].end());
 			world[from].erase(world[from].begin() + hide[from], world[from].end());
 			if (hide[from]) {
@@ -176,25 +176,23 @@ int main() {
 			}
 			break;
 		case 'u':
-			if (cho != -1) {
-				if (cho < 7) {
-					if (world[cho].size()) {
-						int k = world[cho].back();
-						if (done[k & 3] == (k >> 2)) {
-							++done[k & 3];
-							world[cho].pop_back();
-							if (world[cho].size() <= hide[cho] && hide[cho]) {
-								--hide[cho];
-							}
+			if (cur < 7) {
+				if (world[cur].size()) {
+					int k = world[cur].back();
+					if (done[k & 3] == (k >> 2)) {
+						++done[k & 3];
+						world[cur].pop_back();
+						if (world[cur].size() <= hide[cur] && hide[cur]) {
+							--hide[cur];
 						}
 					}
-				} else if (cho == 11) {
-					if (rest.size() && restptr > 0) {
-						int k = rest[restptr];
-						if (done[k & 3] == (k >> 2)) {
-							++done[k & 3];
-							rest.erase(rest.begin() + restptr--);
-						}
+				}
+			} else if (cur == 11) {
+				if (rest.size() && restptr >= 0) {
+					int k = rest[restptr];
+					if (done[k & 3] == (k >> 2)) {
+						++done[k & 3];
+						rest.erase(rest.begin() + restptr--);
 					}
 				}
 			}
