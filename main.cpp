@@ -166,7 +166,7 @@ void rend() {
 		}
 	}
 	for (int i = 0; i <= 11; ++i) {
-		if (trymove(cho, i, true)) {
+		if (trymove(cur, i, true)) {
 			show(i, 12);
 		}
 	}
@@ -240,10 +240,13 @@ int main() {
 			out = true;
 			break;
 		case 'd':
-			if (++restptr == rest.size()) {
-				restptr = -1;
+			if (cur != 11) {
+				cur = 11;
+			} else {
+				if (++restptr == rest.size()) {
+					restptr = -1;
+				}
 			}
-			cur = 11;
 			break;
 		case 'u':
 			fail = !tryupdate(cur);
