@@ -1,5 +1,6 @@
 #include <bits/stdc++.h>
 #include <ncurses.h>
+#include <unistd.h>
 using namespace std;
 
 int color[4] = {
@@ -18,6 +19,7 @@ int restptr = -1;
 int cur = 0;
 int cho = -1;
 int done[4];
+bool fail;
 
 int gen() {
 	int arr[52];
@@ -54,6 +56,87 @@ void show(int st, int pr) {
 	}
 }
 
+bool trymove(int from, int to, bool test = false) {
+	if (from == to) {
+		return false;
+	}
+	if (to > 6) {
+		return false;
+	}
+	if (from < 7 && world[from].size() == 0) {
+		return false;
+	}
+	if (world[to].size() == 0) {
+		if (from < 7 && world[from].size() && (world[from][hide[from]] >> 2) == 12) {
+			if (!test) {
+				world[to].insert(world[to].end(), world[from].begin() + hide[from], world[from].end());
+				world[from].erase(world[from].begin() + hide[from], world[from].end());
+				if (hide[from]) {
+					--hide[from];
+				}
+			}
+			return true;
+		} else if (from == 11 && rest.size() && restptr >= 0 && (rest[restptr] >> 2) == 12) {
+			if (!test) {
+				world[to].push_back(rest[restptr]);
+				rest.erase(rest.begin() + restptr--);
+			}
+			return true;
+		} else if (done[from - 7] == 13) {
+			if (!test) {
+				world[to].push_back((from - 7) | (12 << 2));
+			}
+			return true;
+		}
+		return false;
+	} else {
+		int t = world[to].back();
+		int n = t >> 2;
+		int c = (t & 3) >> 1;
+		if (from < 7) {
+			int ptr = world[from].size() - 1;
+			while (ptr >= hide[from]) {
+				int tt = world[from][ptr];
+				if ((tt >> 2) == n - 1 && ((tt & 3) >> 1) ^ c == 1) {
+					if (!test) {
+						world[to].insert(world[to].end(), world[from].begin() + ptr, world[from].end());
+						world[from].erase(world[from].begin() + ptr, world[from].end());
+						if (world[from].size() == hide[from] && world[from].size()) {
+							--hide[from];
+						}
+					}
+					return true;
+				} else {
+					--ptr;
+				}
+			}
+			return false;
+		} else {
+			int k;
+			if (from < 11) {
+				k = ((done[from - 7] - 1) << 2) | (from - 7);
+			} else if (restptr >= 0) {
+				k = rest[restptr];
+			} else {
+				return false;
+			}
+			if ((k >> 2) == n - 1 && ((k & 3) >> 1) ^ c == 1) {
+				if (!test) {
+					world[to].push_back(k);
+					if (from < 11) {
+						--done[from - 7];
+					} else {
+						rest.erase(rest.begin() + restptr--);
+					}
+				}
+				return true;
+			} else {
+				return false;
+			}
+		}
+	}
+}
+
 void rend() {
 	for (int i = 0; i < 24; ++i) {
 		mvhline(i, 0, ' ' | COLOR_PAIR(10), 80);
@@ -82,71 +165,56 @@ void rend() {
 			draw(rest[restptr], 1, 5);
 		}
 	}
+	for (int i = 0; i <= 11; ++i) {
+		if (trymove(cho, i, true)) {
+			show(i, 12);
+		}
+	}
 	show(cho, 11);
 	show(cur, 10);
+	if (fail) {
+		mvaddch(4, 1, 'x' | COLOR_PAIR(10));
+		fail = false;
+	}
 	refresh();
 }
 
-void trymove(int from, int to) {
-	if (from == to) {
-		return;
-	}
-	if (to > 6) {
-		return;
-	}
-	if (from < 7 && world[from].size() == 0) {
-		return;
-	}
-	if (world[to].size() == 0) {
-		if (from < 7 && world[from].size() && (world[from][hide[from]] >> 2) == 12) {
-			world[to].insert(world[to].end(), world[from].begin() + hide[from], world[from].end());
-			world[from].erase(world[from].begin() + hide[from], world[from].end());
-			if (hide[from]) {
-				--hide[from];
-			}
-		} else if (from == 11 && rest.size() && restptr >= 0 && (rest[restptr] >> 2) == 12) {
-			world[to].push_back(rest[restptr]);
-			rest.erase(rest.begin() + restptr--);
-		} else if (done[from - 7] == 13) {
-			world[to].push_back((from - 7) | (12 << 2));
-		}
-	} else {
-		int t = world[to].back();
-		int n = t >> 2;
-		int c = (t & 3) >> 1;
-		if (from < 7) {
-			int ptr = world[from].size() - 1;
-			while (ptr >= hide[from]) {
-				int tt = world[from][ptr];
-				if ((tt >> 2) == n - 1 && ((tt & 3) >> 1) ^ c == 1) {
-					world[to].insert(world[to].end(), world[from].begin() + ptr, world[from].end());
-					world[from].erase(world[from].begin() + ptr, world[from].end());
-					if (world[from].size() == hide[from] && world[from].size()) {
-						--hide[from];
-					}
-					break;
-				} else {
-					--ptr;
+bool tryupdate(int cur) {
+	if (cur < 7) {
+		if (world[cur].size()) {
+			int k = world[cur].back();
+			if (done[k & 3] == (k >> 2)) {
+				++done[k & 3];
+				world[cur].pop_back();
+				if (world[cur].size() <= hide[cur] && hide[cur]) {
+					--hide[cur];
 				}
-			}
-		} else {
-			int k;
-			if (from < 11) {
-				k = ((done[from - 7] - 1) << 2) | (from - 7);
-			} else if (restptr >= 0) {
-				k = rest[restptr];
-			} else {
-				return;
-			}
-			if ((k >> 2) == n - 1 && ((k & 3) >> 1) ^ c == 1) {
-				world[to].push_back(k);
-				if (from < 11) {
-					--done[from - 7];
-				} else {
-					rest.erase(rest.begin() + restptr--);
-				}
+				return true;
 			}
 		}
+	} else if (cur == 11) {
+		if (rest.size() && restptr >= 0) {
+			int k = rest[restptr];
+			if (done[k & 3] == (k >> 2)) {
+				++done[k & 3];
+				rest.erase(rest.begin() + restptr--);
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+void autoupdate() {
+	bool have = true;
+	while (have) {
+		have = false;
+		for (int i = 0; i < 7; ++i) {
+			have = have || tryupdate(i);
+		}
+		have = have || tryupdate(11);	
+		rend();
+		usleep(100000);
 	}
 }
 
@@ -157,7 +225,8 @@ int main() {
 	noecho();
 	keypad(stdscr, 1);
 	init_pair(10, COLOR_BLACK, COLOR_WHITE);
-	init_pair(11, COLOR_WHITE, COLOR_BLACK);
+	init_pair(11, COLOR_BLUE, COLOR_WHITE);
+	init_pair(12, COLOR_GREEN, COLOR_WHITE);
 	for (int i = 0; i < 4; ++i) {
 		init_pair(i + 1, color[i], COLOR_WHITE);
 	}
@@ -170,43 +239,37 @@ int main() {
 		case 'q':
 			out = true;
 			break;
-		case 'n':
+		case 'd':
 			if (++restptr == rest.size()) {
 				restptr = -1;
 			}
+			cur = 11;
 			break;
 		case 'u':
-			if (cur < 7) {
-				if (world[cur].size()) {
-					int k = world[cur].back();
-					if (done[k & 3] == (k >> 2)) {
-						++done[k & 3];
-						world[cur].pop_back();
-						if (world[cur].size() <= hide[cur] && hide[cur]) {
-							--hide[cur];
-						}
-					}
-				}
-			} else if (cur == 11) {
-				if (rest.size() && restptr >= 0) {
-					int k = rest[restptr];
-					if (done[k & 3] == (k >> 2)) {
-						++done[k & 3];
-						rest.erase(rest.begin() + restptr--);
-					}
+			fail = !tryupdate(cur);
+			break;
+		case 'a':
+			autoupdate();
+			break;
+		case KEY_UP:
+			if (cho == -1 || cur != cho) {
+				cho = cur;
+				break;
+			}
+		case 's':
+			for (int i = (cur + 1) % 12; i != cur; i = (i + 1) % 12) {
+				if (trymove(cho, i, true)) {
+					cur = i;
+					break;
 				}
 			}
 			break;
-		case KEY_UP:
-			cho = cur;
-			break;
 		case KEY_DOWN:
-			trymove(cho, cur);
+			fail = !trymove(cho, cur);
 			cho = -1;
 			break;
 		case KEY_LEFT:
-			--cur;
-			if (cur < 0) {
+			if (--cur < 0) {
 				cur = 11;
 			}
 			break;
